@@ -10,3 +10,7 @@ This is my utility for interacting with the Reddit API, and this is by no means 
 ## Serde Good-To-Know
 
 - [Enum Representations](https://serde.rs/enum-representations.html)
+
+## Type Definitions
+
+- [Quicktype](https://app.quicktype.io/)

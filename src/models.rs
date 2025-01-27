@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(tag="kind", content="data")]
@@ -9,7 +9,7 @@ pub enum RedditResponse {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct RedditListing {
     pub modhash: String,
-    pub dist: i64,
+    pub dist: Option<i64>,
     pub children: Vec<RedditThing>,
     pub after: Option<String>,
     pub before: Option<String>,
@@ -20,7 +20,7 @@ pub struct RedditListing {
 #[serde(tag="kind", content="data")]
 pub enum RedditThing {
     #[serde(rename = "t1")]
-    Comment,
+    Comment(RedditComment),
     #[serde(rename = "t2")]
     Account,
     #[serde(rename = "t3")]
@@ -33,6 +33,104 @@ pub enum RedditThing {
     Award,
 }
 
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct RedditComment {
+
+    pub subreddit_id: String,
+    pub approved_at_utc: Option<serde_json::Value>,
+    pub author_is_blocked: bool,
+    pub comment_type: Option<serde_json::Value>,
+    pub awarders: Vec<Option<serde_json::Value>>,
+    pub mod_reason_by: Option<serde_json::Value>,
+    pub banned_by: Option<serde_json::Value>,
+    pub author_flair_type: String,
+    pub total_awards_received: i64,
+    pub subreddit: String,
+    pub author_flair_template_id: Option<String>,
+    pub likes: Option<serde_json::Value>,
+    pub user_reports: Vec<Option<serde_json::Value>>,
+    pub saved: bool,
+    pub id: String,
+    pub banned_at_utc: Option<serde_json::Value>,
+    pub mod_reason_title: Option<serde_json::Value>,
+    pub gilded: i64,
+    pub archived: bool,
+    pub collapsed_reason_code: Option<serde_json::Value>,
+    pub no_follow: bool,
+    pub author: String,
+    pub can_mod_post: bool,
+    pub created_utc: f64,
+    pub send_replies: bool,
+    pub parent_id: String,
+    pub score: i64,
+    pub author_fullname: String,
+    pub approved_by: Option<serde_json::Value>,
+    pub mod_note: Option<serde_json::Value>,
+    pub all_awardings: Vec<Option<serde_json::Value>>,
+    pub collapsed: bool,
+    pub body: String,
+    pub edited: bool,
+    pub top_awarded_type: Option<serde_json::Value>,
+    pub author_flair_css_class: Option<serde_json::Value>,
+    pub name: String,
+    pub is_submitter: bool,
+    pub downs: i64,
+    pub author_flair_richtext: Vec<AuthorFlairRichtext>,
+    pub author_patreon_flair: bool,
+    pub body_html: String,
+    pub removal_reason: Option<serde_json::Value>,
+    pub collapsed_reason: Option<serde_json::Value>,
+    pub distinguished: Option<serde_json::Value>,
+    pub associated_award: Option<serde_json::Value>,
+    pub stickied: bool,
+    pub author_premium: bool,
+    pub can_gild: bool,
+    pub gildings: Gildings,
+    pub unrepliable_reason: Option<serde_json::Value>,
+    pub author_flair_text_color: Option<String>,
+    pub score_hidden: bool,
+    pub permalink: String,
+    pub subreddit_type: String,
+    pub locked: bool,
+    pub report_reasons: Option<serde_json::Value>,
+    pub created: f64,
+    pub author_flair_text: Option<String>,
+    pub treatment_tags: Vec<Option<serde_json::Value>>,
+    pub link_id: String,
+    pub subreddit_name_prefixed: String,
+    pub controversiality: i64,
+    pub depth: i64,
+    pub author_flair_background_color: Option<String>,
+    pub collapsed_because_crowd_control: Option<serde_json::Value>,
+    pub mod_reports: Vec<Option<serde_json::Value>>,
+    pub num_reports: Option<serde_json::Value>,
+    pub ups: i64,
+    #[serde(default, deserialize_with = "empty_string_or_map_as_none")]
+    pub replies: Option<RedditResponse>,
+}
+
+fn empty_string_or_map_as_none<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: DeserializeOwned,
+{
+    let value: serde_json::Value = Deserialize::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::String(s) if s.is_empty() => Ok(None), // Empty string -> None
+        serde_json::Value::Object(_) => {
+            // Try to deserialize the map object into T
+            let map = serde_json::from_value(value).map(Some).map_err(serde::de::Error::custom)?;
+            Ok(map)
+        }
+        _ => Ok(None), // Anything else -> None
+    }
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AuthorFlairRichtext {
+    pub e: String,
+    pub t: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct RedditLink {
