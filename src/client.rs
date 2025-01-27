@@ -49,8 +49,8 @@ pub async fn fetch_subreddit_posts(subreddit: SubredditSlug) -> eyre::Result<Vec
             response_text
         }
     };
-
-    let response = serde_json::from_str::<RedditResponse>(&response_text)?;
+    let jd = &mut serde_json::Deserializer::from_str(&response_text);
+    let response: RedditResponse = serde_path_to_error::deserialize(jd)?;
     let RedditResponse::Listing(listing) = response;
     let links = listing.children.into_iter().filter_map(|thing| {
         match thing {
@@ -89,7 +89,8 @@ pub async fn fetch_link_comments(link_url: &str) -> eyre::Result<Vec<RedditComme
         }
     };
 
-    let response = serde_json::from_str::<(RedditResponse, RedditResponse)>(&response_text)?;
+    let jd = &mut serde_json::Deserializer::from_str(&response_text);
+    let response: (RedditResponse,RedditResponse) = serde_path_to_error::deserialize(jd)?;
     let (_sub, comments) = response;
     let RedditResponse::Listing(comments) = comments;
     let links = comments.children.into_iter().filter_map(|thing| {
@@ -128,7 +129,7 @@ mod tests {
         let response = serde_json::from_str::<RedditResponse>(x)?;
         assert_eq!(response, RedditResponse::Listing(RedditListing {
             modhash: "".to_string(),
-            dist: 27,
+            dist: Some(27),
             children: vec![],
             after: Some("t3_1i57pyj".to_string()),
             before: None,
