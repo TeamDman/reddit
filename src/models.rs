@@ -1,7 +1,12 @@
-use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+
+use crate::lazy::LazyResponse;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(tag="kind", content="data")]
+#[serde(tag = "kind", content = "data")]
 pub enum RedditResponse {
     Listing(RedditListing),
 }
@@ -15,9 +20,8 @@ pub struct RedditListing {
     pub before: Option<String>,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(tag="kind", content="data")]
+#[serde(tag = "kind", content = "data")]
 pub enum RedditThing {
     #[serde(rename = "t1")]
     Comment(RedditComment),
@@ -33,10 +37,8 @@ pub enum RedditThing {
     Award,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct RedditComment {
-
     pub subreddit_id: String,
     pub approved_at_utc: Option<serde_json::Value>,
     pub author_is_blocked: bool,
@@ -44,7 +46,7 @@ pub struct RedditComment {
     pub awarders: Vec<Option<serde_json::Value>>,
     pub mod_reason_by: Option<serde_json::Value>,
     pub banned_by: Option<serde_json::Value>,
-    pub author_flair_type: String,
+    pub author_flair_type: Option<String>,
     pub total_awards_received: i64,
     pub subreddit: String,
     pub author_flair_template_id: Option<String>,
@@ -64,29 +66,30 @@ pub struct RedditComment {
     pub send_replies: bool,
     pub parent_id: String,
     pub score: i64,
-    pub author_fullname: String,
+    pub author_fullname: Option<String>,
     pub approved_by: Option<serde_json::Value>,
     pub mod_note: Option<serde_json::Value>,
     pub all_awardings: Vec<Option<serde_json::Value>>,
     pub collapsed: bool,
     pub body: String,
-    pub edited: bool,
+    #[serde(default, deserialize_with = "false_as_none")]
+    pub edited: Option<f64>,
     pub top_awarded_type: Option<serde_json::Value>,
     pub author_flair_css_class: Option<serde_json::Value>,
     pub name: String,
     pub is_submitter: bool,
     pub downs: i64,
-    pub author_flair_richtext: Vec<AuthorFlairRichtext>,
-    pub author_patreon_flair: bool,
+    pub author_flair_richtext: Option<Vec<AuthorFlairRichtext>>,
+    pub author_patreon_flair: Option<bool>,
     pub body_html: String,
     pub removal_reason: Option<serde_json::Value>,
     pub collapsed_reason: Option<serde_json::Value>,
     pub distinguished: Option<serde_json::Value>,
     pub associated_award: Option<serde_json::Value>,
     pub stickied: bool,
-    pub author_premium: bool,
+    pub author_premium: Option<bool>,
     pub can_gild: bool,
-    pub gildings: Gildings,
+    pub gildings: serde_json::Value,
     pub unrepliable_reason: Option<serde_json::Value>,
     pub author_flair_text_color: Option<String>,
     pub score_hidden: bool,
@@ -107,7 +110,9 @@ pub struct RedditComment {
     pub num_reports: Option<serde_json::Value>,
     pub ups: i64,
     #[serde(default, deserialize_with = "empty_string_or_map_as_none")]
-    pub replies: Option<RedditResponse>,
+    // pub replies: Option<RedditResponse>, // this causes a stack overflow lol
+    // pub replies: Option<serde_json::Value>,
+    pub replies: Option<LazyResponse>,
 }
 
 fn empty_string_or_map_as_none<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -120,7 +125,9 @@ where
         serde_json::Value::String(s) if s.is_empty() => Ok(None), // Empty string -> None
         serde_json::Value::Object(_) => {
             // Try to deserialize the map object into T
-            let map = serde_json::from_value(value).map(Some).map_err(serde::de::Error::custom)?;
+            let map = serde_json::from_value(value)
+                .map(Some)
+                .map_err(serde::de::Error::custom)?;
             Ok(map)
         }
         _ => Ok(None), // Anything else -> None
@@ -135,7 +142,7 @@ pub struct AuthorFlairRichtext {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct RedditLink {
     pub approved_at_utc: Option<serde_json::Value>,
-    pub subreddit: Subreddit,
+    pub subreddit: String,
     pub selftext: String,
     pub author_fullname: String,
     pub saved: bool,
@@ -144,23 +151,23 @@ pub struct RedditLink {
     pub clicked: bool,
     pub title: String,
     pub link_flair_richtext: Vec<FlairRichtext>,
-    pub subreddit_name_prefixed: SubredditNamePrefixed,
+    pub subreddit_name_prefixed: String,
     pub hidden: bool,
     pub pwls: i64,
-    pub link_flair_css_class: Option<LinkFlairCssClass>,
+    pub link_flair_css_class: Option<String>,
     pub downs: i64,
     pub thumbnail_height: Option<i64>,
     pub top_awarded_type: Option<serde_json::Value>,
     pub hide_score: bool,
     pub name: String,
     pub quarantine: bool,
-    pub link_flair_text_color: Option<FlairTextColor>,
+    pub link_flair_text_color: Option<String>,
     pub upvote_ratio: f64,
     pub author_flair_background_color: Option<String>,
     pub subreddit_type: SubredditType,
     pub ups: i64,
     pub total_awards_received: i64,
-    pub media_embed: Gildings,
+    pub media_embed: serde_json::Value,
     pub thumbnail_width: Option<i64>,
     pub author_flair_template_id: Option<String>,
     pub is_original_content: bool,
@@ -169,7 +176,7 @@ pub struct RedditLink {
     pub is_reddit_media_domain: bool,
     pub is_meta: bool,
     pub category: Option<serde_json::Value>,
-    pub secure_media_embed: Gildings,
+    pub secure_media_embed: serde_json::Value,
     pub link_flair_text: Option<String>,
     pub can_mod_post: bool,
     pub score: i64,
@@ -177,10 +184,11 @@ pub struct RedditLink {
     pub is_created_from_ads_ui: bool,
     pub author_premium: bool,
     pub thumbnail: String,
-    pub edited: bool,
+    #[serde(default, deserialize_with = "false_as_none")]
+    pub edited: Option<f64>,
     pub author_flair_css_class: Option<serde_json::Value>,
     pub author_flair_richtext: Vec<FlairRichtext>,
-    pub gildings: Gildings,
+    pub gildings: serde_json::Value,
     pub content_categories: Option<serde_json::Value>,
     pub is_self: bool,
     pub mod_note: Option<serde_json::Value>,
@@ -215,11 +223,11 @@ pub struct RedditLink {
     pub removed_by: Option<serde_json::Value>,
     pub num_reports: Option<serde_json::Value>,
     pub distinguished: Option<serde_json::Value>,
-    pub subreddit_id: SubredditId,
+    pub subreddit_id: String,
     pub author_is_blocked: bool,
     pub mod_reason_by: Option<serde_json::Value>,
     pub removal_reason: Option<serde_json::Value>,
-    pub link_flair_background_color: LinkFlairBackgroundColor,
+    pub link_flair_background_color: Option<serde_json::Value>,
     pub id: String,
     pub is_robot_indexable: bool,
     pub report_reasons: Option<serde_json::Value>,
@@ -230,7 +238,7 @@ pub struct RedditLink {
     pub contest_mode: bool,
     pub mod_reports: Vec<Option<serde_json::Value>>,
     pub author_patreon_flair: bool,
-    pub author_flair_text_color: Option<FlairTextColor>,
+    pub author_flair_text_color: Option<String>,
     pub permalink: String,
     pub stickied: bool,
     pub url: String,
@@ -245,7 +253,23 @@ pub struct RedditLink {
     pub url_overridden_by_dest: Option<String>,
 }
 
-
+fn false_as_none<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: DeserializeOwned,
+{
+    let value: serde_json::Value = Deserialize::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::Bool(false) => Ok(None), // false -> None
+        _ => {
+            // Try to deserialize the value into T
+            let map = serde_json::from_value(value)
+                .map(Some)
+                .map_err(serde::de::Error::custom)?;
+            Ok(map)
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct FlairRichtext {
     pub e: AuthorFlairType,
@@ -260,39 +284,6 @@ pub enum AuthorFlairType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum FlairTextColor {
-    Dark,
-    Light,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct Gildings {
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum LinkFlairBackgroundColor {
-    #[serde(rename = "#dadada")]
-    Dadada,
-    #[serde(rename = "")]
-    Empty,
-    #[serde(rename = "#fbe9d0")]
-    Fbe9D0,
-    #[serde(rename = "#187718")]
-    The187718,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum LinkFlairCssClass {
-    Comment,
-    #[serde(rename = "expired")]
-    Expired,
-    Review,
-    #[serde(rename = "WeeklyDiscussion")]
-    WeeklyDiscussion,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Preview {
     pub images: Vec<Image>,
     pub enabled: bool,
@@ -300,14 +291,14 @@ pub struct Preview {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Image {
-    pub source: Source,
-    pub resolutions: Vec<Source>,
-    pub variants: Gildings,
+    pub source: ImageSource,
+    pub resolutions: Vec<ImageSource>,
+    pub variants: serde_json::Value,
     pub id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct Source {
+pub struct ImageSource {
     pub url: String,
     pub width: i64,
     pub height: i64,
@@ -315,31 +306,6 @@ pub struct Source {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum Subreddit {
-    Bapcsalescanada,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum SubredditId {
-    #[serde(rename = "t5_2tesr")]
-    T52Tesr,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub enum SubredditNamePrefixed {
-    #[serde(rename = "r/bapcsalescanada")]
-    RBapcsalescanada,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "snake_case")]
 pub enum SubredditType {
     Public,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum Kind {
-    T3,
 }

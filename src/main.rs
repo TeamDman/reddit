@@ -1,36 +1,42 @@
 use client::fetch_link_comments;
-use client::fetch_subreddit_posts;
+use client::fetch_subreddit_posts_paginated;
 use client::SubredditSlug;
+use reqwest::header::HeaderMap;
+use reqwest::header::HeaderValue;
+use reqwest::header::USER_AGENT;
 
 pub mod client;
 pub mod models;
+pub mod rate_limit;
+pub mod lazy;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
+    // 1) Fetch 5 pages of posts
     let sub = SubredditSlug::new("bapcsalescanada");
-    let links = fetch_subreddit_posts(sub).await?;
-    for link in &links {
-        println!("Title: {}", link.title);
-    }
+    let all_links = fetch_subreddit_posts_paginated(sub, 5).await?;
+    println!("Fetched {} links total", all_links.len());
+    
+    // 2) Build a client to reuse for all comment fetches
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        USER_AGENT,
+        HeaderValue::from_str("windows:ca.teamdman.myredditapp:v0.0.1 (by /u/TeamDman)")?,
+    );
+    let client = reqwest::Client::builder()
+        .default_headers(headers)
+        .build()?;
 
-    let link = links.first().ok_or(eyre::eyre!("No links found"))?;
-    println!("First link: {}", link.title);
-    let url = link.url.as_str();
-    println!("First link URL: {}", url);
-    let comments = fetch_link_comments(&link.url).await?;
-    for comment in &comments {
-        println!(
-            "Comment ({}{}): {}",
-            comment.author,
-            comment
-                .author_flair_text
-                .as_ref()
-                .map(|x| format!(" - {}", x))
-                .unwrap_or_default(),
-            comment.body
-        );
+    // 3) For each post, fetch comments. In a real-world scenario, you might want
+    //    concurrency, but that can clash with the 1req/sec limit. We'll do them
+    //    sequentially for simplicity:
+    for link in &all_links {
+        println!("Fetching comments for post {} - '{}'", link.id, link.title);
+        let comments = fetch_link_comments(&client, &link.id, format!("https://www.reddit.com/{}", link.permalink).as_ref()).await?;
+        println!("  -> Found {} top-level comments", comments.len());
     }
+    
     Ok(())
 }
