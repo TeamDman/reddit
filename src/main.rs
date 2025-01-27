@@ -6,9 +6,9 @@ use reqwest::header::HeaderValue;
 use reqwest::header::USER_AGENT;
 
 pub mod client;
+pub mod lazy;
 pub mod models;
 pub mod rate_limit;
-pub mod lazy;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -18,7 +18,7 @@ async fn main() -> eyre::Result<()> {
     let sub = SubredditSlug::new("bapcsalescanada");
     let all_links = fetch_subreddit_posts_paginated(sub, 5).await?;
     println!("Fetched {} links total", all_links.len());
-    
+
     // 2) Build a client to reuse for all comment fetches
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -34,9 +34,14 @@ async fn main() -> eyre::Result<()> {
     //    sequentially for simplicity:
     for link in &all_links {
         println!("Fetching comments for post {} - '{}'", link.id, link.title);
-        let comments = fetch_link_comments(&client, &link.id, format!("https://www.reddit.com/{}", link.permalink).as_ref()).await?;
+        let comments = fetch_link_comments(
+            &client,
+            &link.id,
+            format!("https://www.reddit.com/{}", link.permalink).as_ref(),
+        )
+        .await?;
         println!("  -> Found {} top-level comments", comments.len());
     }
-    
+
     Ok(())
 }

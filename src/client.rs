@@ -150,7 +150,7 @@ pub async fn fetch_link_comments(
         let url = format!("{}.json?raw_json=1", link_url);
         // Rate-limited fetch
         let response_text = rate_limited_fetch(client, &url).await?;
-        
+
         if let Some(parent) = cache_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }

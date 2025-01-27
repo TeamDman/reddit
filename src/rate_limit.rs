@@ -13,7 +13,7 @@ pub async fn rate_limited_fetch(client: &reqwest::Client, url: &str) -> eyre::Re
         // but this is a quick and obvious approach:
         sleep(Duration::from_secs(1)).await;
     }
-    
+
     let response = client.get(url).send().await?;
     let response = response.error_for_status()?;
     let text = response.text().await?;
