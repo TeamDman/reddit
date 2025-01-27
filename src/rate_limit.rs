@@ -1,14 +1,15 @@
-use std::sync::Mutex;
+use std::sync::LazyLock;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-static GLOBAL_RATE_LIMITER: Mutex<()> = Mutex::new(());
+static GLOBAL_RATE_LIMITER: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 pub async fn rate_limited_fetch(client: &reqwest::Client, url: &str) -> eyre::Result<String> {
     {
         // Lock the mutex (ensures only one request at a time can proceed).
         // Once locked, we do the sleep; then we do the actual fetch.
-        let _guard = GLOBAL_RATE_LIMITER.lock().unwrap();
+        let _guard = GLOBAL_RATE_LIMITER.lock().await;
         // Sleep for 1 second. If you want a more precise limiter, you can refine this logic,
         // but this is a quick and obvious approach:
         sleep(Duration::from_secs(1)).await;

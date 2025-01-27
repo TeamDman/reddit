@@ -31,10 +31,7 @@ impl SubredditSlug {
 pub async fn fetch_subreddit_posts(subreddit: SubredditSlug) -> eyre::Result<Vec<RedditLink>> {
     let cache_file = PathBuf::from("target/response.json");
     let response_text = match tokio::fs::try_exists(&cache_file).await {
-        Ok(true) => {
-            let response_text = tokio::fs::read_to_string(&cache_file).await?;
-            response_text
-        }
+        Ok(true) => tokio::fs::read_to_string(&cache_file).await?,
         _ => {
             let url = format!("https://www.reddit.com/r/{}.json?raw_json=1", subreddit);
             let mut headers = HeaderMap::new();
